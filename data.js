@@ -144,6 +144,45 @@ window.VERBES = [
 ];
 window.PERSONNES = ['je (ana)','tu (nta)','il (huwa)','elle (hiya)','nous (7na)','vous (ntuma)','ils (huma)'];
 
+/* ---------- 3bis. MNÉMOTECHNIQUE : squelettes + points ----------
+   LE secret de l'alphabet : 28 lettres = ~18 squelettes + des points.
+   ب ت ث sont LA MÊME barque — seuls les points changent. Apprendre les
+   squelettes divise le travail par deux, les points font le reste. */
+window.AFAM = [
+  ['bā’','tā’','thā’'], ['jīm','ḥā’','khā’'], ['dāl','dhāl'], ['rā’','zāy'],
+  ['sīn','shīn'], ['ṣād','ḍād'], ['ṭā’','ẓā’'], ['‘ayn','ghayn'], ['fā’','qāf']
+];
+window.MNEMO = {
+  'alif':  "Un bâton : la lettre « 1 ». Un trait vertical, rien d'autre — c'est ton A.",
+  'bā’':   "🚣 LA BARQUE, un point DESSOUS : le poisson nage sous la Barque = B.",
+  'tā’':   "🚣 La même barque, DEUX points DESSUS : deux mouettes atterrissenT dessus = T.",
+  'thā’':  "🚣 La barque, TROIS points dessus : THree en anglais = th.",
+  'jīm':   "🎣 LE HAMEÇON, un point DEDANS : il a pris quelque chose au ventre — un Jab = J.",
+  'ḥā’':   "🎣 Le même hameçon, NU (aucun point) : le H « à nu », soufflé chaud du fond de la gorge.",
+  'khā’':  "🎣 L'hameçon, point DESSUS : la poussière qu'on raKHe en crachant la jota.",
+  'dāl':   "🚪 Une porte entrouverte : Dāl, comme « door ». Elle ne s'attache jamais à gauche.",
+  'dhāl':  "🚪 La même porte + un point : dh — la porte qui grince (« the » anglais).",
+  'rā’':   "〰️ Une virgule qui glisse vers le bas : le R Roulé qui déRape.",
+  'zāy':   "〰️ La même virgule + un point : le point qui fait Zzz.",
+  'sīn':   "🐍 Trois petites dents : le Sss du serpent qui montre les dents.",
+  'shīn':  "🐍 Les trois dents + trois points : les points CHuchotent = ch.",
+  'ṣād':   "🦢 Un cygne au gros ventre : le S emphatique — lourd, le ventre plein.",
+  'ḍād':   "🦢 Le cygne + un point : le D emphatique. « La langue du ḍād » = l'arabe lui-même.",
+  'ṭā’':   "🚩 Un drapeau planté sur une colline : le T emphatique, PLANTÉ, massif.",
+  'ẓā’':   "🚩 Le drapeau + un point : le Z emphatique.",
+  '‘ayn':  "3️⃣ Un 3 écrit à l'envers — c'est POUR ÇA que l'arabizi l'écrit « 3 » ! LE son de l'arabe.",
+  'ghayn': "3️⃣ Le même 3 inversé + point dessus : tu te GHargarises (ton R français).",
+  'fā’':   "🪁 Un cerf-volant, UN point : F comme le Fil du cerf-volant.",
+  'qāf':   "🪁 Le même rond, DEUX points et la queue qui PLONGE : le Q du fond de la gorge — plus profond, comme sa queue (le « 9 » arabizi).",
+  'kāf':   "Un K qui s'est allongé : penche la tête, le trait oblique du K latin est dedans.",
+  'lām':   "🤠 Un Lasso dressé : L. (Avec alif : لا = « la » = non !)",
+  'mīm':   "🐌 Un escargot et sa traînée : M comme Mollusque.",
+  'nūn':   "🥣 Une coupe avec UNe perle au-dessus : N comme uNe perle.",
+  'hā’':   "💍 Un petit anneau : le H doux, un soupir dans une bague (rien à voir avec ح le soufflé).",
+  'wāw':   "Un 9 penché qui dit « OUh » : W. Jamais attaché à gauche.",
+  'yā’':   "🦆 Un canard, DEUX points DESSOUS : les deux œufs sous le canard = Y / i."
+};
+
 /* ---------- 4. LES MOTS DU SOCLE ----------
    [arabizi, français, script arabe, thème]
    Darija marocaine (la plupart de ces mots passent aussi en Algérie/Tunisie).

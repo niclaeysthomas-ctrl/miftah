@@ -483,11 +483,17 @@ function renderEcrire() {
     </div>`).join('')}
     <button class="btn" onclick="startZQuiz()">Quiz arabizi · 6 questions</button>
 
+    <div class="card mt" style="border-color:var(--accent)">
+      <h2>🥋 Le Dojo alphabet</h2>
+      <div class="sub mt">Le secret : <b style="color:var(--txt)">28 lettres = 18 squelettes + des points</b>. ب ت ث sont LA MÊME barque — seuls les points changent.
+      Chaque lettre arrive avec son <b style="color:var(--txt)">image mnémo</b>, son <b style="color:var(--txt)">tracé au doigt</b>, et la répétition espacée fait le reste : 5 nouvelles par jour max, les anciennes reviennent pile quand tu vas les oublier.</div>
+      ${(()=>{const d=alphaDue().length, n=alphaNew(5).length, m=alphaMastered(), seen=Object.keys(S.alpha||{}).length;
+        return `<div class="pill mt">${d?d+' à réviser':'rien de dû'}</div> <div class="pill">${n} nouvelle${n>1?'s':''} dispo</div> <div class="pill ${m?'warn':''}">${seen}/28 vues${m?' · '+m+' gravées':''}</div>`;})()}
+      <button class="btn mt" onclick="startAlphaDojo()">${Object.keys(S.alpha||{}).length?'Session alphabet':'Commencer l\'alphabet — famille par famille'}</button>
+    </div>
     <div class="card mt">
-      <h2>🔤 L'alphabet — quand tu veux</h2>
-      <div class="sub mt">28 lettres. Chacune change de forme selon sa place dans le mot (isolée / début / milieu / fin) —
-      c'est ça qui fait peur, et ça tombe en un mois. <b style="color:var(--txt)">Règle d'or : 6 lettres (ا د ذ ر ز و) ne s'attachent JAMAIS à la suivante.</b>
-      Ça explique les « trous » que tu vois dans les mots.</div>
+      <h2>🔤 Les 28, en accès libre</h2>
+      <div class="sub mt">Chacune change de forme selon sa place (isolée / début / milieu / fin) — ça fait peur et ça tombe en un mois. <b style="color:var(--txt)">Règle d'or : 6 lettres (ا د ذ ر ز و) ne s'attachent JAMAIS à la suivante.</b> Touche une lettre : mnémo, famille, tracé.</div>
       ${S.alphaBest ? `<div class="pill warn mt">Record reconnaissance : ${S.alphaBest}/10</div>` : ''}
     </div>
     <div class="agrid mb">${ALPHABET.map((l, i) => `<button class="acell" onclick="openLettre(${i})">
@@ -496,11 +502,15 @@ function renderEcrire() {
 }
 function openLettre(i) {
   const l = ALPHABET[i];
+  const fam = famOf(l[0]);
   app.innerHTML = `
     <div class="card">
       <div class="glyphbig ar">${l[1]}</div>
       <div class="center"><b style="font-size:19px">${l[0]}</b> · <span class="pill">son : ${l[5]}</span></div>
-      ${l[6] ? `<div class="expl mt">${l[6]}</div>` : ''}
+      ${MNEMO[l[0]] ? `<div class="expl mt">💡 ${MNEMO[l[0]]}</div>` : ''}
+      ${l[6] ? `<div class="sub mt center">${l[6]}</div>` : ''}
+      ${fam ? `<div class="sub mt center">Sa famille — même squelette, seuls les points changent :</div>
+      <div class="forms">${fam.map(n => { const x = ALPHABET.find(a => a[0] === n); return `<div class="fcell" style="${x[0]===l[0]?'border-color:var(--accent)':''}"><div class="g ar">${x[1]}</div><div class="l">${x[5]}</div></div>`; }).join('')}</div>` : ''}
       <div class="sub mt center">Ses 4 formes selon la position :</div>
       <div class="forms">
         <div class="fcell"><div class="g ar">${l[1]}</div><div class="l">isolée</div></div>
@@ -508,8 +518,11 @@ function openLettre(i) {
         <div class="fcell"><div class="g ar">${l[3]}</div><div class="l">milieu</div></div>
         <div class="fcell"><div class="g ar">${l[4]}</div><div class="l">fin</div></div>
       </div>
+      <div class="sub mt center">✍️ Trace-la — la main grave ce que l'œil oublie :</div>
+      ${traceHtml(l[1])}
     </div>
     <button class="btn ghost" onclick="setView('ecrire')">Retour</button>`;
+  initTrace();
 }
 /* Quiz arabizi */
 let Z = null;
@@ -557,7 +570,10 @@ function startAQuiz() {
   const items = ALPHABET.slice().sort(() => Math.random() - .5).slice(0, 10).map(l => {
     const forms = [l[1], l[2], l[3], l[4]];
     const shown = forms[Math.floor(Math.random() * 4)];
-    const wrong = ALPHABET.filter(x => x[0] !== l[0]).sort(() => Math.random() - .5).slice(0, 2);
+    // distracteurs : la même famille d'abord — confondre ب et ت est la vraie difficulté, pas ب et م
+    const famD = (famOf(l[0]) || []).filter(n => n !== l[0]).map(n => ALPHABET.find(a => a[0] === n));
+    const others = ALPHABET.filter(x => x[0] !== l[0] && !famD.includes(x)).sort(() => Math.random() - .5);
+    const wrong = [...famD, ...others].slice(0, 2);
     const opts = [l, ...wrong].sort(() => Math.random() - .5);
     return { shown, opts, correct: opts.indexOf(l), why: `${l[0]} — son « ${l[5]} »${l[6] ? '. ' + l[6] : ''}` };
   });
@@ -605,3 +621,149 @@ resetDay();
 render();
 setTimeout(() => { pickVoice(); if (view === 'sons' || view === 'mots') render(); }, 600);
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+
+/* ================= DOJO ALPHABET : mnémo + SRS + tracé ================= */
+function famOf(name){ for(const f of AFAM){ if(f.includes(name)) return f; } return null; }
+function alphaState(i){ return (S.alpha=S.alpha||{})[i]; }
+function alphaDue(){ const t=todayStr(), out=[]; for(const i in (S.alpha||{})) if(S.alpha[i].due<=t) out.push(+i); return out; }
+/* nouvelles lettres : par FAMILLE (le squelette s'apprend d'un bloc) */
+const ALPHA_ORDER=(()=>{ const seen=new Set(), out=[];
+  ALPHABET.forEach((l,i)=>{ if(seen.has(i)) return;
+    const fam=famOf(l[0]);
+    if(fam) fam.forEach(n=>{ const j=ALPHABET.findIndex(x=>x[0]===n); if(!seen.has(j)){ out.push(j); seen.add(j); } });
+    else { out.push(i); seen.add(i); } });
+  return out; })();
+function alphaNew(cap){
+  if(!S.alphaNew||S.alphaNew.date!==todayStr()) S.alphaNew={date:todayStr(),n:0};
+  const left=Math.max(0,cap-S.alphaNew.n), out=[];
+  for(const i of ALPHA_ORDER){ if(out.length>=left) break; if(!alphaState(i)) out.push(i); }
+  return out;
+}
+function rateAlpha(i,q){ // 0 encore · 2 bien
+  let c=alphaState(i);
+  if(!c) c=(S.alpha[i]={ef:2.5,ivl:0,reps:0,due:todayStr(),lapses:0});
+  const ad=n=>{ const d=new Date(Date.now()+n*864e5); return d.toISOString().slice(0,10); };
+  if(q===0){ c.lapses++; c.reps=0; c.ivl=0; c.ef=Math.max(1.3,c.ef-0.2); c.due=ad(1); }
+  else { c.reps++; c.ivl=c.reps===1?1:c.reps===2?3:Math.round(c.ivl*c.ef); c.due=ad(c.ivl); }
+  save();
+}
+function alphaMastered(){ return Object.values(S.alpha||{}).filter(c=>(c.ivl||0)>=21).length; }
+
+/* ---- tracé au doigt ---- */
+function traceHtml(glyph){
+  return `<div class="trace" style="position:relative;width:230px;height:230px;margin:10px auto;border:1.5px solid var(--line);border-radius:14px;background:var(--card2);overflow:hidden">
+    <div id="trGhost" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:150px;color:var(--accent);opacity:.16;pointer-events:none;font-family:inherit" class="ar">${glyph}</div>
+    <canvas id="trCv" width="230" height="230" style="position:absolute;inset:0;touch-action:none"></canvas>
+  </div>
+  <div class="center">
+    <button class="btn ghost" style="display:inline-block;width:auto;padding:8px 14px" onclick="trClear()">🧽 Effacer</button>
+    <button class="btn ghost" style="display:inline-block;width:auto;padding:8px 14px" onclick="trGhostTog()">👁 Modèle</button>
+  </div>`;
+}
+function initTrace(){
+  const cv=document.getElementById('trCv'); if(!cv) return;
+  const ctx=cv.getContext('2d');
+  ctx.lineWidth=7; ctx.lineCap='round'; ctx.lineJoin='round'; ctx.strokeStyle='#e8b04b';
+  let on=false;
+  const pos=e=>{ const r=cv.getBoundingClientRect(); return [e.clientX-r.left,e.clientY-r.top]; };
+  cv.onpointerdown=e=>{ on=true; const [x,y]=pos(e); ctx.beginPath(); ctx.moveTo(x,y); e.preventDefault(); };
+  cv.onpointermove=e=>{ if(!on) return; const [x,y]=pos(e); ctx.lineTo(x,y); ctx.stroke(); e.preventDefault(); };
+  cv.onpointerup=cv.onpointerleave=()=>{ on=false; };
+}
+function trClear(){ const cv=document.getElementById('trCv'); if(cv) cv.getContext('2d').clearRect(0,0,230,230); }
+function trGhostTog(){ const g=document.getElementById('trGhost'); if(g) g.style.opacity=g.style.opacity==='0'?'.16':'0'; }
+
+/* ---- session dojo ---- */
+let AD=null;
+function startAlphaDojo(){
+  const due=alphaDue().sort(()=>Math.random()-.5);
+  const news=alphaNew(5);
+  const queue=[...due.map(i=>({i,mode:Math.random()<.5?'rec':'prod'})), ...news.map(i=>({i,mode:'intro'}))];
+  if(!queue.length){ toast('Alphabet à jour — les lettres reviendront quand la mémoire en aura besoin 🎉'); return; }
+  AD={queue,k:0,good:0,first:new Set()};
+  renderAD();
+}
+function renderAD(){
+  if(AD.k>=AD.queue.length) return finishAD();
+  const it=AD.queue[AD.k], l=ALPHABET[it.i];
+  if(it.mode==='intro'){
+    const fam=famOf(l[0]);
+    app.innerHTML=`
+      <div class="qmeta"><span>🥋 Nouvelle lettre</span><span>${AD.k+1}/${AD.queue.length}</span></div>
+      <div class="card">
+        <div class="glyphbig ar">${l[1]}</div>
+        <div class="center"><b style="font-size:19px">${l[0]}</b> · <span class="pill">son : ${l[5]}</span></div>
+        <div class="expl mt">💡 ${MNEMO[l[0]]||''}</div>
+        ${fam?`<div class="sub mt center">Sa famille (même squelette, seuls les points changent) :</div>
+        <div class="forms">${fam.map(n=>{const x=ALPHABET.find(a=>a[0]===n);return `<div class="fcell"><div class="g ar">${x[1]}</div><div class="l">${x[5]}</div></div>`;}).join('')}</div>`:''}
+        <div class="forms mt">
+          <div class="fcell"><div class="g ar">${l[1]}</div><div class="l">isolée</div></div>
+          <div class="fcell"><div class="g ar">${l[2]}</div><div class="l">début</div></div>
+          <div class="fcell"><div class="g ar">${l[3]}</div><div class="l">milieu</div></div>
+          <div class="fcell"><div class="g ar">${l[4]}</div><div class="l">fin</div></div>
+        </div>
+        <div class="sub mt center">✍️ Trace-la 3 fois — la main grave ce que l'œil oublie :</div>
+        ${traceHtml(l[1])}
+      </div>
+      <button class="btn" onclick="adIntroDone()">Je la connais — quiz !</button>`;
+    initTrace();
+    return;
+  }
+  /* quiz : distracteurs de la MÊME famille d'abord (la vraie difficulté), puis voisins */
+  const fam=(famOf(l[0])||[]).filter(n=>n!==l[0]).map(n=>ALPHABET.find(a=>a[0]===n));
+  const others=ALPHABET.filter(a=>a[0]!==l[0]&&!fam.includes(a)).sort(()=>Math.random()-.5);
+  const distract=[...fam,...others].slice(0,3);
+  const opts=[l,...distract].sort(()=>Math.random()-.5);
+  AD.cur={l,opts,correct:opts.indexOf(l)};
+  const forms=[l[1],l[2],l[3],l[4]], shown=forms[Math.floor(Math.random()*4)];
+  if(it.mode==='rec'){
+    app.innerHTML=`
+      <div class="qmeta"><span>🥋 Alphabet · lecture</span><span>${AD.k+1}/${AD.queue.length}</span></div>
+      <div class="glyphbig ar">${shown}</div>
+      <div class="center sub mb">Quelle lettre ?</div>
+      <div id="opts">${opts.map((o,k)=>`<button class="opt" onclick="answerAD(${k})"><b>${o[0]}</b> <span class="sub">— son « ${o[5]} »</span></button>`).join('')}</div>
+      <div id="after"></div>`;
+  } else {
+    app.innerHTML=`
+      <div class="qmeta"><span>🥋 Alphabet · écriture</span><span>${AD.k+1}/${AD.queue.length}</span></div>
+      <div class="center" style="font-size:19px;font-weight:700;margin:14px 0">Laquelle fait « <span style="color:var(--accent)">${l[5]}</span> » (${l[0]}) ?</div>
+      <div class="forms">${opts.map((o,k)=>`<button class="fcell opt" style="cursor:pointer" onclick="answerAD(${k})"><div class="g ar" style="font-size:44px">${o[1]}</div></button>`).join('')}</div>
+      <div id="after"></div>`;
+  }
+}
+function adIntroDone(){
+  const it=AD.queue[AD.k];
+  rateAlpha(it.i,2); S.alphaNew.n++; addXp(4); save();
+  /* la nouvelle lettre repasse en quiz 3 positions plus loin, dans la même session */
+  AD.queue.splice(Math.min(AD.k+4,AD.queue.length),0,{i:it.i,mode:'rec',fresh:true});
+  AD.k++; renderAD();
+}
+function answerAD(k){
+  const it=AD.queue[AD.k], ok=k===AD.cur.correct, l=AD.cur.l;
+  document.querySelectorAll('#opts .opt, .forms .opt').forEach((b,i)=>{ b.setAttribute('disabled','');
+    if(i===AD.cur.correct) b.classList.add('good'); else if(i===k) b.classList.add('bad'); else b.classList.add('dim'); });
+  if(!it.fresh) rateAlpha(it.i, ok?2:0);
+  if(ok) AD.good++;
+  addXp(ok?2:1);
+  const after=document.getElementById('after');
+  after.innerHTML=`<div class="expl mt">${ok?'✓':'✗'} <b>${l[0]}</b> — ${MNEMO[l[0]]||l[6]||''}</div>
+    <button class="btn mt" onclick="adNext(${ok?1:0})">Continuer</button>`;
+}
+function adNext(ok){
+  const it=AD.queue[AD.k];
+  if(!ok&&!it.fresh) AD.queue.splice(Math.min(AD.k+4,AD.queue.length),0,{i:it.i,mode:it.mode,fresh:true});
+  AD.k++; renderAD();
+}
+function finishAD(){
+  S.daily.ecrire++; save();
+  const total=AD.queue.length, good=AD.good; AD=null;
+  app.innerHTML=`
+    <div class="card big">
+      <div class="em">🥋</div>
+      <div class="score" style="color:var(--good)">${good}/${total}</div>
+      <div class="lab">cartes d'alphabet</div>
+      <div class="mt sub">Les lettres ratées sont revenues dans la session, et la répétition espacée a pris date. ${alphaMastered()?alphaMastered()+' lettre(s) déjà gravée(s) (intervalle ≥ 3 semaines).':'Reviens demain : c\'est le rappel qui grave.'}</div>
+    </div>
+    <button class="btn" onclick="setView('ecrire')">Terminé</button>`;
+}
