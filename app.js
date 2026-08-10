@@ -554,20 +554,23 @@ function renderEcrire() {
     <button class="btn" onclick="startZQuiz()">Quiz arabizi · 6 questions</button>
 
     <div class="card mt" style="border-color:var(--accent)">
-      <h2>🥋 Le Dojo alphabet</h2>
-      <div class="sub mt">Le secret : <b style="color:var(--txt)">28 lettres = 18 squelettes + des points</b>. ب ت ث sont LA MÊME barque — seuls les points changent.
-      Chaque lettre arrive avec son <b style="color:var(--txt)">image mnémo</b>, son <b style="color:var(--txt)">tracé au doigt</b>, et la répétition espacée fait le reste : 5 nouvelles par jour max, les anciennes reviennent pile quand tu vas les oublier.</div>
+      <h2>🖋️ L'Atelier — lire & écrire</h2>
+      <div class="sub mt">Pour aller vite, deux gestes qu'un simple coup d'œil ne donne pas : <b style="color:var(--txt)">écrire la lettre de mémoire</b> (pas la recopier) et <b style="color:var(--txt)">déchiffrer de vrais mots</b>. L'Atelier alterne <b style="color:var(--txt)">lire</b> → <b style="color:var(--txt)">écrire sans modèle</b> → <b style="color:var(--txt)">lire un mot</b>, en répétition espacée. Rappel : 28 lettres = 18 squelettes + des points.</div>
       ${(()=>{const d=alphaDue().length, n=alphaNew(5).length, m=alphaMastered(), seen=Object.keys(S.alpha||{}).length;
         return `<div class="pill mt">${d?d+' à réviser':'rien de dû'}</div> <div class="pill">${n} nouvelle${n>1?'s':''} dispo</div> <div class="pill ${m?'warn':''}">${seen}/28 vues${m?' · '+m+' gravées':''}</div>`;})()}
-      <button class="btn mt" onclick="startAlphaDojo()">${Object.keys(S.alpha||{}).length?'Session alphabet':'Commencer l\'alphabet — famille par famille'}</button>
+      <button class="btn mt" onclick="startAtelier(false)">${Object.keys(S.alpha||{}).length?'Séance d\'écriture':'Commencer — famille par famille'}</button>
+      <button class="btn sec mt" onclick="startAtelier(true)">🏃 Marathon — farm illimité (lecture + écriture)</button>
     </div>
     <div class="card mt">
       <h2>🔤 Les 28, en accès libre</h2>
       <div class="sub mt">Chacune change de forme selon sa place (isolée / début / milieu / fin) — ça fait peur et ça tombe en un mois. <b style="color:var(--txt)">Règle d'or : 6 lettres (ا د ذ ر ز و) ne s'attachent JAMAIS à la suivante.</b> Touche une lettre : mnémo, famille, tracé.</div>
       ${S.alphaBest ? `<div class="pill warn mt">Record reconnaissance : ${S.alphaBest}/10</div>` : ''}
     </div>
-    <div class="agrid mb">${ALPHABET.map((l, i) => `<button class="acell" onclick="openLettre(${i})">
-      <div class="g ar">${l[1]}</div><div class="s">${l[5]}</div><div class="n">${l[0]}</div></button>`).join('')}</div>
+    <div class="sub mb" style="font-size:11px">Bordure : <span style="color:var(--accent)">apprise</span> · <span style="color:var(--blue)">en cours</span> · <span style="color:var(--good)">gravée</span></div>
+    <div class="agrid mb">${ALPHABET.map((l, i) => { const mt = letterMaturity(i), seen = !!alphaState(i);
+      const col = mt >= 3 ? 'var(--good)' : mt >= 2 ? 'var(--blue)' : mt >= 1 ? 'var(--accent)' : 'var(--line)';
+      return `<button class="acell" onclick="openLettre(${i})" style="border-color:${seen ? col : 'var(--line)'}">
+      <div class="g ar">${l[1]}</div><div class="s">${l[5]}</div><div class="n">${l[0]}</div></button>`; }).join('')}</div>
     <button class="btn sec" onclick="startAQuiz()">Drill de reconnaissance · 10 lettres</button>`;
 }
 function openLettre(i) {
@@ -720,10 +723,10 @@ function rateAlpha(i,q){ // 0 encore · 2 bien
 }
 function alphaMastered(){ return Object.values(S.alpha||{}).filter(c=>(c.ivl||0)>=21).length; }
 
-/* ---- tracé au doigt ---- */
-function traceHtml(glyph){
+/* ---- tracé au doigt ---- (hidden=true : modèle caché, pour l'écriture de mémoire) */
+function traceHtml(glyph, hidden){
   return `<div class="trace" style="position:relative;width:230px;height:230px;margin:10px auto;border:1.5px solid var(--line);border-radius:14px;background:var(--card2);overflow:hidden">
-    <div id="trGhost" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:150px;color:var(--accent);opacity:.16;pointer-events:none;font-family:inherit" class="ar">${glyph}</div>
+    <div id="trGhost" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:150px;color:var(--accent);opacity:${hidden?'0':'.16'};pointer-events:none;font-family:inherit" class="ar">${glyph}</div>
     <canvas id="trCv" width="230" height="230" style="position:absolute;inset:0;touch-action:none"></canvas>
   </div>
   <div class="center">
@@ -744,98 +747,173 @@ function initTrace(){
 function trClear(){ const cv=document.getElementById('trCv'); if(cv) cv.getContext('2d').clearRect(0,0,230,230); }
 function trGhostTog(){ const g=document.getElementById('trGhost'); if(g) g.style.opacity=g.style.opacity==='0'?'.16':'0'; }
 
-/* ---- session dojo ---- */
-let AD=null;
-function startAlphaDojo(){
-  const due=alphaDue().sort(()=>Math.random()-.5);
-  const news=alphaNew(5);
-  const queue=[...due.map(i=>({i,mode:Math.random()<.5?'rec':'prod'})), ...news.map(i=>({i,mode:'intro'}))];
-  if(!queue.length){ toast('Alphabet à jour — les lettres reviendront quand la mémoire en aura besoin 🎉'); return; }
-  AD={queue,k:0,good:0,first:new Set()};
-  renderAD();
+/* ================= L'ATELIER — lire & écrire (SM-2) =================
+   Un seul store SM-2 (S.alpha). Chaque lettre due est révisée avec le
+   TYPE de carte adapté à sa maturité :
+     • intro : présentation + tracé guidé (nouvelle lettre)
+     • read  : forme au hasard → quel son ? (lecture / reconnaissance)
+     • write : « écris le son X » → canvas VIDE → révèle le modèle (écriture de mémoire)
+     • word  : déchiffre un vrai mot qui contient la lettre (lecture en contexte)
+   Plus une lettre est mûre, plus elle passe en 'word' (lecture réelle).   */
+const AR_BASE = ALPHABET.map(l => l[1]);
+const AR_SET = new Set(AR_BASE);
+function decodable(ar){ for(const ch of ar){ if(ch===' ') continue; if(!AR_SET.has(ch)) return false; } return true; }
+const READ_WORDS = MOTS.filter(m => { const n=[...m[2]].filter(c=>c!==' ').length; return decodable(m[2]) && n>=2 && n<=5; });
+function wordForLetter(i){ const g=ALPHABET[i][1], pool=READ_WORDS.filter(m=>m[2].indexOf(g)>=0); return pool.length?pool[Math.floor(Math.random()*pool.length)]:null; }
+function decompose(ar){ return [...ar].filter(c=>c!==' ').map(ch=>{ const l=ALPHABET.find(a=>a[1]===ch); return {g:ch, nom:l?l[0]:'?', son:l?l[5]:'?'}; }); }
+function letterMaturity(i){ const c=alphaState(i); if(!c) return 0; const iv=c.ivl||0; return iv>=21?3:iv>=6?2:1; }
+function pickCardMode(i){
+  if(letterMaturity(i)>=2 && wordForLetter(i)) return Math.random()<.45 ? 'word' : (Math.random()<.5?'read':'write');
+  return Math.random()<.5 ? 'read' : 'write';
 }
-function renderAD(){
-  if(AD.k>=AD.queue.length) return finishAD();
-  const it=AD.queue[AD.k], l=ALPHABET[it.i];
-  if(it.mode==='intro'){
-    const fam=famOf(l[0]);
-    app.innerHTML=`
-      <div class="qmeta"><span>🥋 Nouvelle lettre</span><span>${AD.k+1}/${AD.queue.length}</span></div>
-      <div class="card">
-        <div class="glyphbig ar">${l[1]}</div>
-        <div class="center"><b style="font-size:19px">${l[0]}</b> · <span class="pill">son : ${l[5]}</span></div>
-        <div class="expl mt">💡 ${MNEMO[l[0]]||''}</div>
-        ${fam?`<div class="sub mt center">Sa famille (même squelette, seuls les points changent) :</div>
-        <div class="forms">${fam.map(n=>{const x=ALPHABET.find(a=>a[0]===n);return `<div class="fcell"><div class="g ar">${x[1]}</div><div class="l">${x[5]}</div></div>`;}).join('')}</div>`:''}
-        <div class="forms mt">
-          <div class="fcell"><div class="g ar">${l[1]}</div><div class="l">isolée</div></div>
-          <div class="fcell"><div class="g ar">${l[2]}</div><div class="l">début</div></div>
-          <div class="fcell"><div class="g ar">${l[3]}</div><div class="l">milieu</div></div>
-          <div class="fcell"><div class="g ar">${l[4]}</div><div class="l">fin</div></div>
-        </div>
-        <div class="sub mt center">✍️ Trace-la 3 fois — la main grave ce que l'œil oublie :</div>
-        ${traceHtml(l[1])}
-      </div>
-      <button class="btn" onclick="adIntroDone()">Je la connais — quiz !</button>`;
-    initTrace();
-    return;
+const AT_LABEL = { intro:'nouvelle lettre', read:'lire', write:'écrire de mémoire', word:'lire un mot' };
+
+let AT=null;
+function startAtelier(marathon){
+  let queue;
+  if(marathon){
+    const seen=Object.keys(S.alpha||{}).map(Number);
+    queue=[];
+    ALPHA_ORDER.filter(i=>!alphaState(i)).slice(0, seen.length?2:6).forEach(i=>queue.push({i,mode:'intro'}));
+    if(seen.length) for(let n=0;n<18;n++){ const i=seen[Math.floor(Math.random()*seen.length)]; queue.push({i,mode:pickCardMode(i)}); }
+  } else {
+    const due=alphaDue().sort(()=>Math.random()-.5), news=alphaNew(5);
+    queue=[...due.map(i=>({i,mode:pickCardMode(i)})), ...news.map(i=>({i,mode:'intro'}))];
   }
-  /* quiz : distracteurs de la MÊME famille d'abord (la vraie difficulté), puis voisins */
+  if(!queue.length){ toast('Alphabet à jour — reviens quand des lettres seront dues, ou lance le Marathon 🎉'); return; }
+  AT={queue,k:0,good:0,marathon:!!marathon};
+  window.scrollTo(0,0); renderAT();
+}
+function atHead(mode){ return `<div class="qmeta"><span>🖋️ L'Atelier · ${AT_LABEL[mode]}</span><span>${AT.k+1}/${AT.queue.length}</span></div>`; }
+function renderAT(){
+  if(AT.k>=AT.queue.length) return finishAT();
+  const it=AT.queue[AT.k], l=ALPHABET[it.i];
+  if(it.mode==='intro') return renderAtIntro(it,l);
+  if(it.mode==='write') return renderAtWrite(it,l);
+  if(it.mode==='word')  return renderAtWord(it,l);
+  return renderAtRead(it,l);
+}
+function renderAtIntro(it,l){
+  const fam=famOf(l[0]), ex=letterExample(it.i);
+  app.innerHTML=atHead('intro')+`
+    <div class="card">
+      <div class="glyphbig ar">${l[1]}</div>
+      <div class="center"><b style="font-size:19px">${l[0]}</b> · <span class="pill">son : ${l[5]}</span></div>
+      <div class="expl mt">💡 ${MNEMO[l[0]]||''}</div>
+      ${fam?`<div class="sub mt center">Sa famille (même squelette, seuls les points changent) :</div>
+      <div class="forms">${fam.map(n=>{const x=ALPHABET.find(a=>a[0]===n);return `<div class="fcell"><div class="g ar">${x[1]}</div><div class="l">${x[5]}</div></div>`;}).join('')}</div>`:''}
+      <div class="forms mt">
+        <div class="fcell"><div class="g ar">${l[1]}</div><div class="l">isolée</div></div>
+        <div class="fcell"><div class="g ar">${l[2]}</div><div class="l">début</div></div>
+        <div class="fcell"><div class="g ar">${l[3]}</div><div class="l">milieu</div></div>
+        <div class="fcell"><div class="g ar">${l[4]}</div><div class="l">fin</div></div>
+      </div>
+      ${ex?`<div class="wordcard mt"><div class="sub" style="font-size:11px">Elle apparaît dans :</div><div class="w ar">${ex.ar}</div><div class="t">${ex.az}</div><div class="f">${ex.fr}</div></div>`:''}
+      <div class="sub mt center">✍️ Trace-la avec le modèle — juste après, tu l'écriras de mémoire :</div>
+      ${traceHtml(l[1])}
+    </div>
+    <button class="btn" onclick="atIntroDone()">Je l'ai vue — on s'entraîne →</button>
+    <button class="btn ghost mt" onclick="quitAtelier()">Quitter</button>`;
+  initTrace();
+}
+function atIntroDone(){
+  const it=AT.queue[AT.k];
+  rateAlpha(it.i,2);
+  if(!S.alphaNew||S.alphaNew.date!==todayStr()) S.alphaNew={date:todayStr(),n:0};
+  S.alphaNew.n++; addXp(4); save();
+  AT.queue.splice(Math.min(AT.k+3,AT.queue.length),0,{i:it.i,mode:'write',fresh:true});
+  AT.k++; renderAT();
+}
+function renderAtRead(it,l){
   const fam=(famOf(l[0])||[]).filter(n=>n!==l[0]).map(n=>ALPHABET.find(a=>a[0]===n));
   const others=ALPHABET.filter(a=>a[0]!==l[0]&&!fam.includes(a)).sort(()=>Math.random()-.5);
-  const distract=[...fam,...others].slice(0,3);
-  const opts=[l,...distract].sort(()=>Math.random()-.5);
-  AD.cur={l,opts,correct:opts.indexOf(l)};
-  const forms=[l[1],l[2],l[3],l[4]], shown=forms[Math.floor(Math.random()*4)];
-  if(it.mode==='rec'){
-    app.innerHTML=`
-      <div class="qmeta"><span>🥋 Alphabet · lecture</span><span>${AD.k+1}/${AD.queue.length}</span></div>
-      <div class="glyphbig ar">${shown}</div>
-      <div class="center sub mb">Quelle lettre ?</div>
-      <div id="opts">${opts.map((o,k)=>`<button class="opt" onclick="answerAD(${k})"><b>${o[0]}</b> <span class="sub">— son « ${o[5]} »</span></button>`).join('')}</div>
-      <div id="after"></div>`;
-  } else {
-    app.innerHTML=`
-      <div class="qmeta"><span>🥋 Alphabet · écriture</span><span>${AD.k+1}/${AD.queue.length}</span></div>
-      <div class="center" style="font-size:19px;font-weight:700;margin:14px 0">Laquelle fait « <span style="color:var(--accent)">${l[5]}</span> » (${l[0]}) ?</div>
-      <div class="forms">${opts.map((o,k)=>`<button class="fcell opt" style="cursor:pointer" onclick="answerAD(${k})"><div class="g ar" style="font-size:44px">${o[1]}</div></button>`).join('')}</div>
-      <div id="after"></div>`;
-  }
+  const opts=[l,...[...fam,...others].slice(0,3)].sort(()=>Math.random()-.5);
+  const shown=[l[1],l[2],l[3],l[4]][Math.floor(Math.random()*4)];
+  AT.cur={l,correct:opts.indexOf(l)};
+  app.innerHTML=atHead('read')+`
+    <div class="glyphbig ar">${shown}</div>
+    <div class="center sub mb">Lis : quel son fait cette lettre ?</div>
+    <div id="opts">${opts.map((o,k)=>`<button class="opt" onclick="atAnswer(${k})"><b style="color:var(--accent)">${o[5]}</b> <span class="sub">— ${o[0]}</span></button>`).join('')}</div>
+    <div id="after"></div>
+    <div class="mt"><button class="btn ghost" onclick="quitAtelier()">Quitter</button></div>`;
 }
-function adIntroDone(){
-  const it=AD.queue[AD.k];
-  rateAlpha(it.i,2); S.alphaNew.n++; addXp(4); save();
-  /* la nouvelle lettre repasse en quiz 3 positions plus loin, dans la même session */
-  AD.queue.splice(Math.min(AD.k+4,AD.queue.length),0,{i:it.i,mode:'rec',fresh:true});
-  AD.k++; renderAD();
-}
-function answerAD(k){
-  const it=AD.queue[AD.k], ok=k===AD.cur.correct, l=AD.cur.l;
-  document.querySelectorAll('#opts .opt, .forms .opt').forEach((b,i)=>{ b.setAttribute('disabled','');
-    if(i===AD.cur.correct) b.classList.add('good'); else if(i===k) b.classList.add('bad'); else b.classList.add('dim'); });
+function atAnswer(k){
+  const it=AT.queue[AT.k], ok=k===AT.cur.correct, l=AT.cur.l;
+  document.querySelectorAll('#opts .opt').forEach((b,i)=>{ b.setAttribute('disabled',''); if(i===AT.cur.correct)b.classList.add('good'); else if(i===k)b.classList.add('bad'); else b.classList.add('dim'); });
   if(!it.fresh) rateAlpha(it.i, ok?2:0);
-  if(ok) AD.good++;
-  addXp(ok?2:1);
-  const after=document.getElementById('after');
-  after.innerHTML=`<div class="expl mt">${ok?'✓':'✗'} <b>${l[0]}</b> — ${MNEMO[l[0]]||l[6]||''}</div>
-    <button class="btn mt" onclick="adNext(${ok?1:0})">Continuer</button>`;
+  if(ok) AT.good++; addXp(ok?2:1);
+  document.getElementById('after').innerHTML=`<div class="expl ${ok?'':'warn'} mt">${ok?'✓':'✗'} <b>${l[0]}</b> — son « ${l[5]} »${MNEMO[l[0]]?'. '+MNEMO[l[0]]:''}</div>
+    <button class="btn mt" onclick="atNext(${ok?1:0})">Continuer</button>`;
 }
-function adNext(ok){
-  const it=AD.queue[AD.k];
-  if(!ok&&!it.fresh) AD.queue.splice(Math.min(AD.k+4,AD.queue.length),0,{i:it.i,mode:it.mode,fresh:true});
-  AD.k++; renderAD();
+function renderAtWrite(it,l){
+  app.innerHTML=atHead('write')+`
+    <div class="card">
+      <div class="center" style="font-size:19px;font-weight:800;margin:6px 0 2px">Écris la lettre qui fait « <span style="color:var(--accent)">${l[5]}</span> »</div>
+      <div class="center sub mb">${l[0]} — <b style="color:var(--txt)">de mémoire</b>, sans regarder le modèle</div>
+      ${traceHtml(l[1], true)}
+    </div>
+    <div id="wrate"><button class="btn" onclick="atWriteReveal()">Voir le modèle & comparer</button></div>
+    <button class="btn ghost mt" onclick="quitAtelier()">Quitter</button>`;
+  initTrace();
 }
-function finishAD(){
+function atWriteReveal(){
+  const g=document.getElementById('trGhost'); if(g) g.style.opacity='.3';
+  document.getElementById('wrate').innerHTML=`
+    <div class="expl mt center">Compare ton tracé au modèle. Sois honnête — c'est ça qui grave.</div>
+    <div class="srsrow" style="grid-template-columns:1fr 1fr">
+      <button class="again" onclick="atSelfRate(0)">Raté ✗</button>
+      <button class="easy" onclick="atSelfRate(2)">Réussi ✓</button></div>`;
+}
+function renderAtWord(it,l){
+  const w=it.word||(it.word=wordForLetter(it.i));
+  if(!w){ AT.queue[AT.k]={i:it.i,mode:'read'}; return renderAT(); }
+  AT.cur={l,word:w};
+  app.innerHTML=atHead('word')+`
+    <div class="card">
+      <div class="center sub">Déchiffre ce mot à voix haute, lettre par lettre :</div>
+      <div class="glyphbig ar" style="font-size:60px">${w[2]}</div>
+      <div class="center sub">il contient le <b class="ar" style="color:var(--accent);font-size:18px">${l[1]}</b> (${l[5]})</div>
+      <div id="wordback" class="hidden">
+        <div class="sub mt center">Dans l'ordre de lecture :</div>
+        <div class="forms">${decompose(w[2]).map((d,n)=>`<div class="fcell"><div class="l" style="color:var(--dim)">${n+1}</div><div class="g ar">${d.g}</div><div class="l">${d.son}</div></div>`).join('')}</div>
+        <div class="wordcard mt"><div class="t">${w[0]}</div><div class="f">${w[1]}</div><button class="spk" onclick="speak('${w[2]}')">🔊</button></div>
+      </div>
+    </div>
+    <div id="wrate"><button class="btn" onclick="atWordReveal()">Vérifier ma lecture</button></div>
+    <button class="btn ghost mt" onclick="quitAtelier()">Quitter</button>`;
+}
+function atWordReveal(){
+  document.getElementById('wordback').classList.remove('hidden');
+  speak(AT.cur.word[2]);
+  document.getElementById('wrate').innerHTML=`
+    <div class="srsrow" style="grid-template-columns:1fr 1fr">
+      <button class="again" onclick="atSelfRate(0)">J'ai galéré ✗</button>
+      <button class="easy" onclick="atSelfRate(2)">Lu ✓</button></div>`;
+}
+function atSelfRate(q){
+  const it=AT.queue[AT.k];
+  if(!it.fresh) rateAlpha(it.i, q);
+  if(q===2) AT.good++; addXp(q===2?3:1);
+  atNext(q===2?1:0);
+}
+function atNext(ok){
+  const it=AT.queue[AT.k];
+  if(!ok && !it.fresh) AT.queue.splice(Math.min(AT.k+4,AT.queue.length),0,{i:it.i,mode:it.mode==='word'?'read':it.mode,fresh:true});
+  AT.k++; renderAT();
+}
+function quitAtelier(){ AT=null; setView('ecrire'); }
+function finishAT(){
   S.daily.ecrire++; save();
-  const total=AD.queue.length, good=AD.good; AD=null;
+  const total=AT.queue.length, good=AT.good, marathon=AT.marathon; AT=null;
   app.innerHTML=`
     <div class="card big">
-      <div class="em">🥋</div>
+      <div class="em">🖋️</div>
       <div class="score" style="color:var(--good)">${good}/${total}</div>
-      <div class="lab">cartes d'alphabet</div>
-      <div class="mt sub">Les lettres ratées sont revenues dans la session, et la répétition espacée a pris date. ${alphaMastered()?alphaMastered()+' lettre(s) déjà gravée(s) (intervalle ≥ 3 semaines).':'Reviens demain : c\'est le rappel qui grave.'}</div>
+      <div class="lab">cartes lues & écrites</div>
+      <div class="mt sub">Tu as lu, écrit de mémoire et déchiffré de vrais mots. ${alphaMastered()?alphaMastered()+' lettre(s) gravée(s) (intervalle ≥ 3 semaines).':'Le rappel espacé fait le reste — reviens demain.'}</div>
     </div>
-    <button class="btn" onclick="setView('ecrire')">Terminé</button>`;
+    <button class="btn" onclick="startAtelier(${marathon})">${marathon?'Encore un marathon 🏃':'Refaire'}</button>
+    <button class="btn ghost mt" onclick="setView('ecrire')">Terminé</button>`;
 }
 
 
