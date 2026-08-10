@@ -336,3 +336,190 @@ window.MOTS = [
   ['smiti...','je m\'appelle…','سميتي','Phrases'],
   ['ana men fransa','je viens de France','أنا من فرنسا','Phrases']
 ];
+
+/* ============================================================
+   5. LE PARCOURS — la colonne vertébrale (Mois 1)
+   On n'apprend plus des modules isolés : on suit un chemin.
+   Un jour = une séance courte. Principe : PARLER tout de suite
+   (des blocs de phrases), l'alphabet en fond (10 min/j max),
+   les sons en douceur. Contenu 100 % darija marocaine.
+   ============================================================ */
+
+/* ---------- 5a. LES BLOCS — des MOULES + des EXPRESSIONS ----------
+   On ne mémorise pas « bghit = vouloir ». On apprend le moule
+   « bghit ___ » et on fabrique 10 phrases avec.
+   moule : { id, kind:'moule', t, stem:{az,ar,fr}, note, slots:[{fr,full:{az,ar}}], neg:{fr,az,ar} }
+   expr  : { id, kind:'expr',  t, note, items:[{az,ar,fr}] }
+*/
+window.BLOCS = [
+  {
+    id:'bghit', kind:'moule', t:'bghit ___ — je veux ___',
+    stem:{ az:'bghit', ar:'بغيت', fr:'je veux' },
+    note:"Tu gardes le début, tu changes la fin — et tu parles. (Attention : avec <b>ka-</b>, <i>kanbghi</i> veut dire « j'aime ».)",
+    slots:[
+      { fr:'je veux un café',          full:{ az:'bghit qahwa',       ar:'بغيت قهوة' } },
+      { fr:'je veux un thé',           full:{ az:'bghit atay',        ar:'بغيت أتاي' } },
+      { fr:'je veux du pain',          full:{ az:'bghit khubz',       ar:'بغيت خبز'  } },
+      { fr:'je veux manger',           full:{ az:'bghit nakul',       ar:'بغيت ناكل' } },
+      { fr:'je veux partir / y aller', full:{ az:'bghit nemshi',      ar:'بغيت نمشي' } },
+      { fr:'je veux dormir',           full:{ az:'bghit n3es',        ar:'بغيت نعس'  } },
+      { fr:'je veux boire un thé',     full:{ az:'bghit nshreb atay', ar:'بغيت نشرب أتاي' } }
+    ],
+    neg:{ fr:'je ne veux pas', az:'ma bghitsh', ar:'ما بغيتش' }
+  },
+  {
+    id:'3ndi', kind:'moule', t:'3ndi ___ — j\'ai ___',
+    stem:{ az:'3ndi', ar:'عندي', fr:'j\'ai' },
+    note:"Négation : on <b>encadre</b>, comme « ne … pas ». <i>3ndi</i> → <b>ma</b> 3ndi<b>sh</b> = je n'ai pas.",
+    slots:[
+      { fr:'j\'ai le temps',     full:{ az:'3ndi lwqt',   ar:'عندي الوقت' } },
+      { fr:'j\'ai de l\'argent', full:{ az:'3ndi flus',   ar:'عندي فلوس'  } },
+      { fr:'j\'ai du travail',   full:{ az:'3ndi khedma', ar:'عندي خدمة'  } },
+      { fr:'j\'ai une question', full:{ az:'3ndi su2al',  ar:'عندي سؤال'  } },
+      { fr:'j\'ai un ami',       full:{ az:'3ndi sa7bi',  ar:'عندي صاحبي' } }
+    ],
+    neg:{ fr:'je n\'ai pas d\'argent', az:'ma 3ndish flus', ar:'ما عنديش فلوس' }
+  },
+
+  {
+    id:'bonjour', kind:'expr', t:'Dire bonjour',
+    note:'Les premiers mots que tes potes attendent de toi.',
+    items:[
+      { az:'salam',        ar:'سلام',       fr:'salut / bonjour' },
+      { az:'salam 3likum', ar:'سلام عليكم', fr:'bonjour (à vous)' },
+      { az:'sba7 lkhir',   ar:'صباح الخير', fr:'bonjour (le matin)' },
+      { az:'msa lkhir',    ar:'مساء الخير', fr:'bonsoir' }
+    ]
+  },
+  {
+    id:'cava', kind:'expr', t:'Demander « ça va ? »',
+    note:'kif <b>dayr</b> à un homme, kif <b>dayra</b> à une femme — l\'accord se sent tout de suite.',
+    items:[
+      { az:'labas ?',              ar:'لاباس؟',        fr:'ça va ?' },
+      { az:'labas',                ar:'لاباس',         fr:'ça va (bien)' },
+      { az:'kif dayr ?',           ar:'كيف داير؟',     fr:'comment vas-tu ? (à un homme)' },
+      { az:'kif dayra ?',          ar:'كيف دايرة؟',    fr:'comment vas-tu ? (à une femme)' },
+      { az:'bikhir, l7amdulillah', ar:'بخير الحمد لله',fr:'bien, Dieu merci' }
+    ]
+  },
+  {
+    id:'moi', kind:'expr', t:'Parler de toi',
+    note:'De quoi te présenter en dix secondes.',
+    items:[
+      { az:'ana...',         ar:'أنا',          fr:'moi… / je suis…' },
+      { az:'smiti...',       ar:'سميتي',        fr:'je m\'appelle…' },
+      { az:'ana men fransa', ar:'أنا من فرنسا', fr:'je viens de France' },
+      { az:'nta',            ar:'نتا',          fr:'toi (à un homme)' },
+      { az:'nti',            ar:'نتي',          fr:'toi (à une femme)' }
+    ]
+  },
+  {
+    id:'questions', kind:'expr', t:'Les mots-questions',
+    note:'Sept mots qui ouvrent presque toutes les phrases.',
+    items:[
+      { az:'shnu / ash', ar:'شنو',   fr:'quoi' },
+      { az:'fin',        ar:'فين',   fr:'où' },
+      { az:'kifash',     ar:'كيفاش', fr:'comment' },
+      { az:'3lash',      ar:'علاش',  fr:'pourquoi' },
+      { az:'shkun',      ar:'شكون',  fr:'qui' },
+      { az:'imta',       ar:'إمتى',  fr:'quand' },
+      { az:'sh7al',      ar:'شحال',  fr:'combien' }
+    ]
+  },
+  {
+    id:'base', kind:'expr', t:'Oui, non, merci',
+    note:'Le minimum vital de la politesse.',
+    items:[
+      { az:'ah / iyeh', ar:'آه',    fr:'oui' },
+      { az:'la',        ar:'لا',    fr:'non' },
+      { az:'wakha',     ar:'واخا',  fr:'d\'accord / OK' },
+      { az:'shukran',   ar:'شكرا',  fr:'merci' },
+      { az:'3afak',     ar:'عفاك',  fr:'s\'il te plaît' },
+      { az:'smeh li',   ar:'سمح لي',fr:'pardon / excuse-moi' },
+      { az:'bslama',    ar:'بسلامة',fr:'au revoir' }
+    ]
+  },
+  {
+    id:'debrouille', kind:'expr', t:'Se débrouiller en conversation',
+    note:'Quand tu es largué : ces phrases te sauvent et font ralentir l\'autre.',
+    items:[
+      { az:'kan3ref',        ar:'كنعرف',      fr:'je sais' },
+      { az:'ma kan3refsh',   ar:'ما كنعرفش',  fr:'je ne sais pas' },
+      { az:'ma fhemtsh',     ar:'ما فهمتش',   fr:'je n\'ai pas compris' },
+      { az:'3awed 3afak',    ar:'عاود عفاك',  fr:'répète s\'il te plaît' },
+      { az:'bshwiya 3afak',  ar:'بشوية عفاك', fr:'plus lentement s\'il te plaît' },
+      { az:'ana kant3allem', ar:'أنا كنتعلم', fr:'j\'apprends (le darija)' }
+    ]
+  }
+];
+
+/* ---------- 5b. LE PARCOURS : Mois 1, Semaine 1 détaillée ----------
+   activités : {type:'expr'|'moule', id} · {type:'son', i} ·
+   {type:'alpha'|'alphaquiz', letters:[index ALPHABET]} · {type:'mots'} · {type:'bilan'}
+   Alphabet en fond, ses deux groupes :  G1 ا ب ت ث ن ي · G2 د ذ ر ز و
+*/
+window.PARCOURS = {
+  mois:'Mois 1', titre:'Je commence à parler',
+  semaines:[
+    { n:1, titre:'Sons + phrases ultra-utiles',        jours:[1,2,3,4,5,6,7] },
+    { n:2, titre:'La vie de tous les jours',           locked:true },
+    { n:3, titre:'Le passé et le futur, version simple',locked:true },
+    { n:4, titre:'Tenir une vraie petite conversation', locked:true }
+  ],
+  jours:[
+    { n:1, titre:'Bonjour !', sub:'Saluer, dire oui/non/merci — et ton tout premier son.',
+      activities:[
+        { type:'expr',  id:'bonjour',   t:'Dire bonjour', min:3 },
+        { type:'expr',  id:'base',      t:'Oui, non, merci', min:3 },
+        { type:'son',   i:0,            t:'Le son خ (kh) — tu l\'as déjà', min:4 },
+        { type:'alpha', letters:[0,1],  t:'Lettres du jour : ا ب', min:8 }
+      ] },
+    { n:2, titre:'Comment ça va ?', sub:'Demander des nouvelles — et ta première phrase à toi.',
+      activities:[
+        { type:'expr',  id:'cava',      t:'« Ça va ? »', min:3 },
+        { type:'moule', id:'bghit',     t:'Fabriquer : je veux…', min:6 },
+        { type:'son',   i:1,            t:'Le son غ (gh) — ton R français', min:4 },
+        { type:'alpha', letters:[2,3],  t:'Lettres du jour : ت ث', min:8 },
+        { type:'mots',                  t:'Réviser les mots', min:5 }
+      ] },
+    { n:3, titre:'Je veux…', sub:'Tu construis des phrases, tu poses des questions.',
+      activities:[
+        { type:'moule', id:'bghit',     t:'Je veux… (+ « je ne veux pas »)', min:6 },
+        { type:'expr',  id:'questions', t:'Les mots-questions', min:4 },
+        { type:'son',   i:2,            t:'Le son ح (7) — le H chaud', min:4 },
+        { type:'alpha', letters:[24,27],t:'Lettres du jour : ن ي', min:8 },
+        { type:'mots',                  t:'Réviser les mots', min:5 }
+      ] },
+    { n:4, titre:'Moi, je m\'appelle…', sub:'Te présenter, dire ce que tu as.',
+      activities:[
+        { type:'expr',  id:'moi',       t:'Parler de toi', min:4 },
+        { type:'moule', id:'3ndi',      t:'Fabriquer : j\'ai…', min:6 },
+        { type:'son',   i:3,            t:'Le son ع (3) — le boss', min:5 },
+        { type:'alpha', letters:[7,8],  t:'Lettres du jour : د ذ', min:8 },
+        { type:'mots',                  t:'Réviser les mots', min:5 }
+      ] },
+    { n:5, titre:'J\'ai / je n\'ai pas', sub:'Tu encadres le verbe avec « ma … sh ».',
+      activities:[
+        { type:'moule', id:'3ndi',      t:'J\'ai… (+ « je n\'ai pas »)', min:6 },
+        { type:'expr',  id:'debrouille',t:'Se débrouiller', min:4 },
+        { type:'son',   i:4,            t:'Le son ق (9/q) — le K du fond', min:5 },
+        { type:'alpha', letters:[9,10], t:'Lettres du jour : ر ز', min:8 },
+        { type:'mots',                  t:'Réviser les mots', min:5 }
+      ] },
+    { n:6, titre:'Se débrouiller', sub:'Tu recombines tout ce que tu sais déjà.',
+      activities:[
+        { type:'expr',  id:'debrouille',t:'Se débrouiller', min:4 },
+        { type:'moule', id:'bghit',     t:'Je veux…', min:5 },
+        { type:'moule', id:'3ndi',      t:'J\'ai…', min:5 },
+        { type:'son',   i:5,            t:'Le son ص (S) — le S lourd', min:5 },
+        { type:'alpha', letters:[26],   t:'Lettre du jour : و', min:6 }
+      ] },
+    { n:7, titre:'Bilan — tu tiens 2 minutes', sub:'On assemble : saluer → te présenter → dire ce que tu veux.',
+      activities:[
+        { type:'son',      i:6,         t:'Le son ط (T) — le T lourd', min:5 },
+        { type:'alphaquiz',letters:[0,1,2,3,24,27,7,8,9,10,26], t:'Quiz : les 11 lettres de la semaine', min:6 },
+        { type:'mots',                  t:'Grande révision', min:8 },
+        { type:'bilan',                 t:'Bilan de la Semaine 1', min:5 }
+      ] }
+  ]
+};

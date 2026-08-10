@@ -137,6 +137,29 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit;background:n
 .big .score{font-size:40px;font-weight:900;margin:4px 0}
 .big .lab{color:var(--muted)}
 
+/* Parcours */
+.daystrip{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.dcell{background:var(--card2);border:1px solid var(--line);border-radius:11px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.dcell .dn{font-size:15px;font-weight:800}
+.dcell .dl{font-size:9px;color:var(--muted);font-weight:700}
+.dcell.now{border-color:var(--accent);color:var(--accent)}
+.dcell.ok{border-color:#4ec97e55;color:var(--good)}
+.dcell.lock{opacity:.38}
+.dcell.sel{box-shadow:0 0 0 1.5px var(--accent) inset;background:var(--card)}
+.actrow{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--line);
+  border-radius:12px;padding:12px 13px;margin-bottom:8px;width:100%;text-align:left}
+.actrow.ok{border-color:#4ec97e40;opacity:.72}
+.actrow .aic{font-size:20px;width:26px;text-align:center;flex:0 0 auto}
+.actrow .abody{flex:1;min-width:0;display:flex;flex-direction:column}
+.actrow .at{font-weight:700;font-size:14px;display:block}
+.actrow .ad{color:var(--muted);font-size:11px;display:block;unicode-bidi:isolate}
+.actrow .atick{font-size:16px;color:var(--accent);flex:0 0 auto}
+.actrow.ok .atick{color:var(--good)}
+.room2{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}
+.roomb{display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--card2);
+  border:1px solid var(--line);border-radius:11px;padding:10px 2px;font-size:20px}
+.roomb span{font-size:10px;color:var(--muted);font-weight:700}
+
 /* Nav */
 .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(12,15,14,.93);backdrop-filter:blur(14px);
   border-top:1px solid var(--line);display:flex;padding:8px 6px calc(8px + env(safe-area-inset-bottom));z-index:50}
@@ -182,7 +205,8 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit;background:n
 <div class="wrap" id="app"></div>
 
 <div class="nav">
-  <button data-v="home" class="on"><span class="ni">🏠</span>Socle</button>
+  <button data-v="home" class="on"><span class="ni">🧭</span>Parcours</button>
+  <button data-v="parler"><span class="ni">💬</span>Parler</button>
   <button data-v="sons"><span class="ni">🔊</span>Sons</button>
   <button data-v="mots"><span class="ni">🃏</span>Mots</button>
   <button data-v="verbes"><span class="ni">⚡</span>Verbes</button>
@@ -191,7 +215,7 @@ button{font-family:inherit;cursor:pointer;border:none;color:inherit;background:n
 
 <div class="toast" id="toast"></div>
 
-<script src="data.js?v=3"></script>
-<script src="app.js?v=4"></script>
+<script src="data.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

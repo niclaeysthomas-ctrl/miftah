@@ -17,7 +17,8 @@ const DEFAULT = {
   cards: {},       // index -> SRS
   newToday: 0, newDate: todayStr(),
   alphaBest: 0,
-  daily: { date: todayStr(), son: 0, cards: 0, ecrire: 0 },
+  daily: { date: todayStr(), son: 0, cards: 0, ecrire: 0, acts: {} },
+  parcours: { day: 1, claimed: {} },   // jour courant du parcours + jours déjà récompensés
   firstRun: true
 };
 let S = load();
@@ -30,7 +31,10 @@ function save() { localStorage.setItem('miftah', JSON.stringify(S)); }
 function resetDay() {
   const t = todayStr();
   if (S.newDate !== t) { S.newDate = t; S.newToday = 0; }
-  if (!S.daily || S.daily.date !== t) S.daily = { date: t, son: 0, cards: 0, ecrire: 0 };
+  if (!S.daily || S.daily.date !== t) S.daily = { date: t, son: 0, cards: 0, ecrire: 0, acts: {} };
+  if (!S.daily.acts) S.daily.acts = {};
+  if (!S.parcours) S.parcours = { day: 1, claimed: {} };
+  if (!S.parcours.claimed) S.parcours.claimed = {};
   if (S.lastActive !== t) {
     S.lastActive === yest() ? S.streak += 1 : S.streak = 1;
     S.lastActive = t;
@@ -109,7 +113,7 @@ function nextLbl(i, r) {
 /* ---------- Rendu ---------- */
 const app = document.getElementById('app');
 let view = 'home';
-function setView(v) { view = v; document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); render(); }
+function setView(v) { FROM_SESSION = false; if (v === 'home') viewDay = null; view = v; document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); render(); }
 document.querySelectorAll('.nav button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
 
 function render() {
@@ -119,6 +123,7 @@ function render() {
   document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.v === view));
   window.scrollTo(0, 0);
   if (view === 'home') return renderHome();
+  if (view === 'parler') return renderParler();
   if (view === 'sons') return renderSons();
   if (view === 'mots') return renderMots();
   if (view === 'verbes') return renderVerbes();
@@ -126,38 +131,68 @@ function render() {
 }
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+/* ---------- LE PARCOURS (accueil) ---------- */
+let viewDay = null;                                  // jour affiché (null = jour courant)
+function dayObj(n) { return PARCOURS.jours[n - 1]; }
+function actKey(day, a) {
+  if (a.type === 'son') return 'd' + day + ':son:' + a.i;
+  if (a.type === 'alpha' || a.type === 'alphaquiz') return 'd' + day + ':alpha';
+  if (a.type === 'mots') return 'd' + day + ':mots';
+  if (a.type === 'bilan') return 'd' + day + ':bilan';
+  return 'd' + day + ':' + a.type + ':' + a.id;
+}
+function actDone(day, a) { return !!(S.daily.acts && S.daily.acts[actKey(day, a)]); }
+function dayComplete(n) { const d = dayObj(n); return !!d && d.activities.every(a => actDone(n, a)); }
+
 function renderHome() {
+  const total = PARCOURS.jours.length;
+  const cur = Math.min(S.parcours.day, total);
+  const vd = Math.min(viewDay || cur, cur);
+  const d = dayObj(vd);
+  const sem = PARCOURS.semaines.find(s => (s.jours || []).includes(vd)) || PARCOURS.semaines[0];
+  const acts = d.activities;
+  const doneN = acts.filter(a => actDone(vd, a)).length;
+  const pct = Math.round(doneN / acts.length * 100);
+  const complete = doneN === acts.length;
   const L = levelFromXp(S.xp);
-  const due = dueCards().length, nw = newAvailable(false).length;
-  const d = S.daily;
-  const goals = [
-    ['🔊', 'Travailler un son', d.son >= 1, `${Math.min(d.son,1)}/1`],
-    ['🃏', 'Réviser des mots', d.cards >= GOAL_CARDS, `${Math.min(d.cards, GOAL_CARDS)}/${GOAL_CARDS}`],
-    ['✍️', 'Écrire (arabizi/alphabet)', d.ecrire >= 1, `${Math.min(d.ecrire,1)}/1`]
-  ];
-  const pct = Math.round(goals.filter(g => g[2]).length / 3 * 100);
+  const ICON = { expr: '🗣️', moule: '🧱', son: '🔊', alpha: '✍️', alphaquiz: '✍️', mots: '🃏', bilan: '🏁' };
+
   app.innerHTML = `
     ${S.firstRun ? `
     <div class="card" style="border-color:var(--accent)">
-      <h2>Bienvenue — et deux bonnes nouvelles</h2>
-      <div class="sub mt">Sur les 5 sons « impossibles » de l'arabe, <b style="color:var(--txt)">tu en possèdes déjà deux</b> :
-      le <b class="ar" style="color:var(--accent)">خ</b> est la <i>jota</i> espagnole (jamón) et le
-      <b class="ar" style="color:var(--accent)">غ</b> est ton <b>R français</b>. Tu ne pars pas de zéro.</div>
-      <div class="sub mt">Ici on attaque par <b style="color:var(--txt)">les sons et l'oreille</b>, pas par l'alphabet — c'est là qu'est le vrai mur.
-      Et tu pourras <b style="color:var(--txt)">écrire à tes potes dès cette semaine</b> grâce à l'arabizi, sans connaître une seule lettre.</div>
-      <button class="btn mt" onclick="S.firstRun=false;save();setView('sons')">Commencer par les sons →</button>
+      <h2>Bienvenue — voici ton chemin</h2>
+      <div class="sub mt">Fini le zapping entre modules : tu as un <b style="color:var(--txt)">parcours</b>. Un jour = une séance courte.
+      On attaque par ce qui te fait <b style="color:var(--txt)">parler tout de suite</b> — des blocs de phrases — avec les sons et l'alphabet en fond.</div>
+      <div class="sub mt">Et deux cadeaux pour démarrer : sur les 5 sons durs de l'arabe, <b style="color:var(--txt)">tu en as déjà deux</b> —
+      le <b class="ar" style="color:var(--accent)">خ</b> (jota espagnole) et le <b class="ar" style="color:var(--accent)">غ</b> (ton R français).</div>
+      <button class="btn mt" onclick="S.firstRun=false;save();render()">Commencer le Jour 1 →</button>
     </div>` : ''}
 
     <div class="card">
-      <div class="sub" style="text-transform:uppercase;letter-spacing:.07em;font-size:11px;font-weight:800">Objectif du jour · ${pct}%</div>
-      <div class="pbar mb" style="margin-top:8px"><i style="width:${pct}%"></i></div>
-      ${goals.map(g => `<div style="display:flex;align-items:center;gap:9px;padding:4px 0;font-size:14px">
-        <span>${g[2] ? '✅' : '⬜️'}</span><span style="flex:1;color:${g[2] ? 'var(--txt)' : 'var(--muted)'}">${g[0]} ${g[1]}</span>
-        <b style="font-size:12px;color:${g[2] ? 'var(--good)' : 'var(--muted)'}">${g[3]}</b></div>`).join('')}
+      <div class="sub" style="text-transform:uppercase;letter-spacing:.07em;font-size:11px;font-weight:800;color:var(--accent)">🧭 ${PARCOURS.mois} — ${PARCOURS.titre}</div>
+      <h2 class="mt" style="font-size:16px">Semaine ${sem.n} · ${sem.titre}</h2>
+      <div class="daystrip mt">${PARCOURS.jours.map(j => {
+        const st = (j.n < cur || dayComplete(j.n)) ? 'ok' : j.n > cur ? 'lock' : 'now';
+        return `<button class="dcell ${st}${j.n === vd ? ' sel' : ''}" ${j.n > cur ? 'disabled' : ''} onclick="pickDay(${j.n})">
+          <span class="dn">${(j.n < cur || dayComplete(j.n)) ? '✓' : j.n}</span><span class="dl">J${j.n}</span></button>`;
+      }).join('')}</div>
     </div>
 
     <div class="card">
-      <div class="sub" style="display:flex;justify-content:space-between"><span>Niveau ${L.lv}</span><span>${L.into}/${L.need} XP</span></div>
+      <div class="qmeta"><span style="font-weight:800;color:var(--txt)">Jour ${vd} · ${esc(d.titre)}</span><span>${doneN}/${acts.length}</span></div>
+      <div class="sub mb">${esc(d.sub)}</div>
+      <div class="pbar mb"><i style="width:${pct}%"></i></div>
+      ${acts.map((a, k) => `<button class="actrow ${actDone(vd, a) ? 'ok' : ''}" onclick="launchAct(${vd},${k})">
+        <span class="aic">${ICON[a.type] || '▶️'}</span>
+        <span class="abody"><span class="at">${esc(a.t)}</span>${a.min ? `<span class="ad">~${a.min} min</span>` : ''}</span>
+        <span class="atick">${actDone(vd, a) ? '✅' : '▶︎'}</span></button>`).join('')}
+      ${complete ? `<div class="expl center mt">✅ Séance du Jour ${vd} bouclée.</div>
+        ${vd === cur && cur < total ? `<button class="btn mt" onclick="nextDay()">Passer au Jour ${vd + 1} →</button>` : ''}
+        ${vd === cur && cur >= total ? `<div class="sub center mt">Tu es au bout du contenu construit. La <b style="color:var(--txt)">Semaine 2</b> arrive. 💪</div>` : ''}` : ''}
+    </div>
+
+    <div class="card">
+      <div class="sub" style="display:flex;justify-content:space-between"><span>Niveau ${L.lv}</span><span>${L.into}/${L.need} XP · 🔥 ${S.streak}</span></div>
       <div class="pbar"><i style="width:${Math.round(L.into / L.need * 100)}%"></i></div>
       <div class="row2 mt">
         <div><div class="logo" style="font-size:22px">${sonsMastered()}/${SONS.length}</div><div class="sub">sons maîtrisés</div></div>
@@ -165,28 +200,59 @@ function renderHome() {
       </div>
     </div>
 
-    <button class="tile" onclick="setView('sons')">
-      <div class="ic">🔊</div>
-      <div class="body"><div class="t">Les sons — le vrai mur</div><div class="d">7 sons, paliers étalés sur plusieurs jours</div></div>
-      <div class="badge ${sonsMastered() === SONS.length ? '' : 'zero'}">${sonsMastered()}/${SONS.length}</div>
-    </button>
-    <button class="tile" onclick="setView('mots')">
-      <div class="ic">🃏</div>
-      <div class="body"><div class="t">Les mots du socle</div><div class="d">${due} à réviser · ${nw} nouveau(x)</div></div>
-      <div class="badge ${(due + nw) === 0 ? 'zero' : ''}">${due + nw}</div>
-    </button>
-    <button class="tile" onclick="setView('ecrire')">
-      <div class="ic">✍️</div>
-      <div class="body"><div class="t">Écrire</div><div class="d">Arabizi (tout de suite) · alphabet (quand tu veux)</div></div>
-      <div class="badge zero">${ALPHABET.length}</div>
-    </button>
+    <div class="card">
+      <h2 style="font-size:14px">🚪 Salles d'entraînement libre</h2>
+      <div class="sub">Le parcours te guide ; ici tu farmes quand tu veux.</div>
+      <div class="room2 mt">
+        <button class="roomb" onclick="setView('parler')">💬<span>Parler</span></button>
+        <button class="roomb" onclick="setView('sons')">🔊<span>Sons</span></button>
+        <button class="roomb" onclick="setView('mots')">🃏<span>Mots</span></button>
+        <button class="roomb" onclick="setView('verbes')">⚡<span>Verbes</span></button>
+        <button class="roomb" onclick="setView('ecrire')">✍️<span>Écrire</span></button>
+      </div>
+    </div>
 
     <div class="card">
       <h2 style="font-size:15px">La route, sans mensonge</h2>
-      <div class="sub mt">Comprendre des bribes : <b style="color:var(--txt)">~3 mois</b> · Conversation simple : <b style="color:var(--txt)">~8-12 mois</b> · Fluide au quotidien : <b style="color:var(--txt)">~2 ans</b>.
-      À 30 min/jour <b style="color:var(--accent)">+ pratique réelle avec tes potes</b> — c'est eux, ton avantage. L'app ne remplace personne.</div>
+      <div class="sub mt">Bribes : <b style="color:var(--txt)">~3 mois</b> · Conversation simple : <b style="color:var(--txt)">~8-12 mois</b> · Fluide : <b style="color:var(--txt)">~2 ans</b>.
+      30 min/jour <b style="color:var(--accent)">+ tes potes marocains</b> — c'est eux, ton avantage. L'app ne les remplace pas.</div>
     </div>`;
 }
+function pickDay(n) { viewDay = n; render(); }
+function nextDay() { if (S.parcours.day < PARCOURS.jours.length) S.parcours.day++; viewDay = null; save(); toast('➡️ Jour ' + S.parcours.day); render(); }
+
+/* ---------- Lancement d'une activité depuis la séance ---------- */
+let FROM_SESSION = false;                            // clé d'activité en cours (ou false)
+function launchAct(day, k) {
+  const a = dayObj(day).activities[k];
+  FROM_SESSION = actKey(day, a);
+  window.scrollTo(0, 0);
+  switch (a.type) {
+    case 'son': return openSon(a.i);
+    case 'mots': {
+      const q = dueCards().concat(newAvailable(false));
+      if (!q.length) { markActDone(); toast('Rien à réviser 🎉'); return render(); }
+      return startRev(false);
+    }
+    case 'moule': return startPhrase('moule', a.id);
+    case 'expr': return startPhrase('expr', a.id);
+    case 'alpha': return startLetters(a.letters, {});
+    case 'alphaquiz': return startLetters(a.letters, { quizOnly: true });
+    case 'bilan': return renderBilan(day);
+  }
+}
+function markActDone() {
+  if (!FROM_SESSION) return;
+  (S.daily.acts = S.daily.acts || {})[FROM_SESSION] = true;
+  const cur = S.parcours.day, d = dayObj(cur);
+  if (d && d.activities.every(a => actDone(cur, a))) {
+    S.parcours.claimed = S.parcours.claimed || {};
+    if (!S.parcours.claimed[cur]) { S.parcours.claimed[cur] = true; addXp(40); toast('✅ Jour ' + cur + ' bouclé · +40 XP'); }
+  }
+  save();
+}
+function sessBack() { return FROM_SESSION ? `<button class="btn" onclick="backToSeance()">← Retour à la séance</button>` : ''; }
+function backToSeance() { FROM_SESSION = false; setView('home'); }
 
 /* ---------- SONS ---------- */
 function renderSons() {
@@ -230,7 +296,7 @@ function openSon(i) {
     ${ok ? `<div class="card center sub">Son maîtrisé. Tu peux refaire le drill pour l'entretenir (+5 XP).</div>` : ''}
     ${today && !ok ? `<div class="card center sub">✋ Palier déjà pris aujourd'hui. Ton oreille travaille pendant la nuit — reviens demain.</div>` : ''}
     <button class="btn" onclick="startDrill(${i})">${ok ? '↻ Entretenir l\'oreille' : '👂 Drill d\'oreille'}</button>
-    <button class="btn ghost mt" onclick="setView('sons')">Retour</button>`;
+    ${FROM_SESSION ? `<button class="btn ghost mt" onclick="backToSeance()">← Retour à la séance</button>` : `<button class="btn ghost mt" onclick="setView('sons')">Retour</button>`}`;
 }
 
 /* Drill : discrimination à l'oreille */
@@ -295,6 +361,7 @@ function finishDrill() {
     if (p.n >= SON_PALIERS) { addXp(60); msg = `🎧 Son <b>${s.nom}</b> maîtrisé ! +60 XP`; }
     else { addXp(20); msg = `Palier ${p.n}/${SON_PALIERS} · +20 XP — reviens demain pour le suivant.`; }
   }
+  markActDone();
   app.innerHTML = `
     <div class="card big">
       <div class="em">${pass ? (pct === 100 ? '🎯' : '👂') : '💪'}</div>
@@ -302,8 +369,9 @@ function finishDrill() {
       <div class="lab">${D.correct}/${D.items.length}</div>
       <div class="mt sub">${msg}</div>
     </div>
-    <button class="btn" onclick="startDrill(${D.i})">Refaire</button>
-    <button class="btn ghost mt" onclick="setView('sons')">Retour aux sons</button>`;
+    ${sessBack()}
+    <button class="btn ${FROM_SESSION ? 'sec' : ''}" onclick="startDrill(${D.i})">Refaire</button>
+    ${FROM_SESSION ? '' : `<button class="btn ghost mt" onclick="setView('sons')">Retour aux sons</button>`}`;
 }
 
 /* ---------- MOTS (SRS) ---------- */
@@ -374,9 +442,11 @@ function doRate(r) {
 }
 function finishRev() {
   save();
+  markActDone();
   app.innerHTML = `<div class="card big"><div class="em">🧠</div><div class="score" style="color:var(--good)">+${R.done}</div>
     <div class="lab">carte(s) travaillée(s)</div><div class="mt sub">Reviens demain : elles réapparaîtront au bon moment.</div></div>
-    <button class="btn" onclick="setView('mots')">Terminé</button>`;
+    ${sessBack()}
+    ${FROM_SESSION ? '' : `<button class="btn" onclick="setView('mots')">Terminé</button>`}`;
 }
 
 /* ---------- VERBES (darija marocaine) ---------- */
@@ -767,3 +837,238 @@ function finishAD(){
     </div>
     <button class="btn" onclick="setView('ecrire')">Terminé</button>`;
 }
+
+
+/* ================= PARLER : fabriquer des phrases ================= */
+/* Le cœur du parcours : on n'apprend pas des mots, on fabrique des
+   phrases. Un « moule » (bghit ___) génère des dizaines de phrases ;
+   les « expressions » sont des blocs qu'on sort tels quels.        */
+function renderParler(){
+  const moules=BLOCS.filter(b=>b.kind==='moule'), exprs=BLOCS.filter(b=>b.kind==='expr');
+  app.innerHTML=`
+    <div class="card" style="border-color:var(--accent)">
+      <h2>💬 Parler — fabrique des phrases</h2>
+      <div class="sub mt">La règle d'or : <b style="color:var(--txt)">on ne mémorise pas des mots, on fabrique des phrases.</b>
+      Pas <i>bghit = vouloir</i>, mais <b style="color:var(--accent)">bghit qahwa</b> = je veux un café,
+      <b style="color:var(--accent)">bghit nemshi</b> = je veux partir, <b style="color:var(--accent)">ma bghitsh</b> = je ne veux pas.</div>
+    </div>
+    <div class="card"><h2 style="font-size:14px">🧱 Les moules — une structure = dix phrases</h2>
+      <div class="sub">Tu gardes le début, tu changes la fin.</div></div>
+    ${moules.map(tileBloc).join('')}
+    <div class="card mt"><h2 style="font-size:14px">🗣️ Les expressions — à sortir telles quelles</h2></div>
+    ${exprs.map(tileBloc).join('')}
+    ${audioWarn()}
+    ${TTS_NOTE}`;
+}
+function tileBloc(b){
+  const n=b.kind==='moule'?(b.slots.length+(b.neg?1:0)):b.items.length;
+  const sub=b.kind==='moule'?`<span class="ar" style="color:var(--accent)">${b.stem.ar}</span> ${b.stem.az} ___ · ${n} phrases`:`${n} expressions`;
+  return `<button class="tile" onclick="FROM_SESSION=false;startPhrase('${b.kind}','${b.id}')">
+    <div class="ic">${b.kind==='moule'?'🧱':'🗣️'}</div>
+    <div class="body"><div class="t">${b.t}</div><div class="d">${sub}</div></div>
+    <div class="badge zero">${n}</div></button>`;
+}
+
+let P=null;
+function startPhrase(kind,id){
+  const b=BLOCS.find(x=>x.id===id); if(!b){ toast('Bloc introuvable'); return; }
+  let targets;
+  if(kind==='moule'){
+    targets=b.slots.map(s=>({fr:s.fr,az:s.full.az,ar:s.full.ar}));
+    if(b.neg) targets.push({fr:b.neg.fr,az:b.neg.az,ar:b.neg.ar,neg:true});
+  } else {
+    targets=b.items.map(s=>({fr:s.fr,az:s.az,ar:s.ar}));
+  }
+  P={kind,b,targets,phase:'discover',i:0,quiz:null,qk:0,correct:0,answered:false,shown:false};
+  window.scrollTo(0,0); renderPhrase();
+}
+function phraseStem(){
+  if(P.kind!=='moule') return `<div class="card"><div class="sub">${P.b.note||''}</div></div>`;
+  const s=P.b.stem;
+  return `<div class="regle"><div class="rk"><span class="ar">${s.ar}</span> · ${s.az} ___ <span style="color:var(--muted);font-weight:600">= ${s.fr} ___</span></div>
+    <div class="rx">${P.b.note}</div></div>`;
+}
+function renderPhrase(){
+  if(P.phase==='discover'){
+    if(P.i>=P.targets.length) return buildPhraseQuiz();
+    const t=P.targets[P.i]; P.shown=false;
+    app.innerHTML=`
+      <div class="qmeta"><span>${P.kind==='moule'?'🧱':'🗣️'} ${P.b.t}</span><span>Découverte ${P.i+1}/${P.targets.length}</span></div>
+      ${phraseStem()}
+      <div class="flash" onclick="phraseFlip()">
+        <div class="theme">Comment on dit…</div>
+        <div class="front">${t.fr}</div>
+        <div id="pback" class="hidden"><div class="back">${t.az}</div><div class="arw ar" style="margin-top:4px">${t.ar}</div></div>
+        <div id="phint" class="tap">Dis-le à voix haute · touche pour vérifier</div>
+      </div>
+      <div id="pspk" class="center"></div>
+      <div class="mt"><button class="btn ghost" onclick="quitPhrase()">Quitter</button></div>`;
+  } else {
+    if(P.qk>=P.quiz.length) return finishPhrase();
+    const it=P.quiz[P.qk]; P.answered=false;
+    app.innerHTML=`
+      <div class="qmeta"><span>${P.kind==='moule'?'🧱':'🗣️'} ${P.b.t} · fabrique</span><span>${P.qk+1}/${P.quiz.length}</span></div>
+      <div class="pbar mb"><i style="width:${P.qk/P.quiz.length*100}%"></i></div>
+      <div class="center" style="font-size:19px;font-weight:800;margin:8px 0 16px">${it.fr}</div>
+      <div id="opts">${it.opts.map((o,k)=>`<button class="opt" onclick="answerPhrase(${k})"><b style="color:var(--accent)">${o.az}</b> &nbsp;<span class="ar" style="color:var(--muted)">${o.ar}</span></button>`).join('')}</div>
+      <div id="after"></div>
+      <div class="mt"><button class="btn ghost" onclick="quitPhrase()">Quitter</button></div>`;
+  }
+}
+function phraseFlip(){
+  if(P.shown) return; P.shown=true;
+  const t=P.targets[P.i];
+  document.getElementById('pback').classList.remove('hidden');
+  document.getElementById('phint').classList.add('hidden');
+  speak(t.ar);
+  document.getElementById('pspk').innerHTML=`<button class="spk" onclick="speak('${t.ar}')">🔊</button>
+    <div class="srsrow" style="grid-template-columns:1fr 1fr"><button class="again" onclick="phraseAgain()">À revoir</button><button class="easy" onclick="phraseNext()">Je l'ai ✓</button></div>`;
+}
+function phraseAgain(){ P.targets.push(P.targets[P.i]); phraseNext(); }
+function phraseNext(){ P.i++; renderPhrase(); }
+function buildPhraseQuiz(){
+  const pool=P.targets;
+  P.quiz=pool.slice().sort(()=>Math.random()-.5).slice(0,Math.min(6,pool.length)).map(t=>{
+    const wrong=pool.filter(x=>x.az!==t.az).sort(()=>Math.random()-.5).slice(0,3);
+    const opts=[t,...wrong].sort(()=>Math.random()-.5);
+    return {fr:t.fr,ar:t.ar,opts,correct:opts.indexOf(t)};
+  });
+  P.phase='quiz'; P.qk=0; P.correct=0; renderPhrase();
+}
+function answerPhrase(k){
+  if(P.answered) return; P.answered=true;
+  const it=P.quiz[P.qk], ok=k===it.correct;
+  document.querySelectorAll('#opts .opt').forEach((b,i)=>{ b.setAttribute('disabled',''); if(i===it.correct)b.classList.add('good'); else if(i===k)b.classList.add('bad'); else b.classList.add('dim'); });
+  if(ok) P.correct++;
+  speak(it.ar);
+  const last=P.qk===P.quiz.length-1;
+  document.getElementById('after').innerHTML=`<div class="expl ${ok?'':'warn'}">${ok?'✅ ':'❌ '}<b>${it.opts[it.correct].az}</b> — ${it.fr}</div>
+    <button class="btn mt" onclick="${last?'finishPhrase()':'nextPhrase()'}">${last?'Résultat':'Suivant'}</button>`;
+}
+function nextPhrase(){ P.qk++; renderPhrase(); }
+function quitPhrase(){ if(FROM_SESSION) backToSeance(); else setView('parler'); }
+function finishPhrase(){
+  const pct=P.quiz.length?Math.round(P.correct/P.quiz.length*100):100;
+  const pass=P.correct>=Math.ceil(P.quiz.length*0.6);
+  if(pass) addXp(15);
+  markActDone();
+  app.innerHTML=`<div class="card big"><div class="em">${pass?'💬':'🧱'}</div>
+    <div class="score" style="color:${pass?'var(--good)':'var(--accent)'}">${pct}%</div>
+    <div class="lab">${P.correct}/${P.quiz.length} phrase(s)</div>
+    <div class="mt sub">${pass?'+15 XP — tu fabriques, tu ne récites pas. Maintenant, envoie-en une à un pote.':'Refais-le : vise 3 phrases sur 4 avant de passer.'}</div></div>
+    ${sessBack()}
+    <button class="btn ${FROM_SESSION?'sec':''}" onclick="startPhrase('${P.kind}','${P.b.id}')">Refaire</button>
+    ${FROM_SESSION?'':`<button class="btn ghost mt" onclick="setView('parler')">Retour</button>`}`;
+}
+
+
+/* ================= LETTRES DU JOUR : alphabet en fond ================= */
+/* 10 min max/jour : quelques lettres, leurs 4 formes, un mot connu qui
+   les contient, un tracé au doigt, puis un mini-quiz de reconnaissance. */
+let LT=null;
+function letterExample(idx){ const g=ALPHABET[idx][1]; const m=MOTS.find(x=>x[2].indexOf(g)>=0); return m?{az:m[0],fr:m[1],ar:m[2]}:null; }
+function startLetters(idxs,opts){
+  opts=opts||{};
+  LT={idxs:(idxs||[]).slice(),i:0,phase:opts.quizOnly?'quiz':'learn',quiz:null,qk:0,correct:0,answered:false};
+  window.scrollTo(0,0);
+  if(LT.phase==='quiz'){ buildLetterQuiz(); } else { renderLT(); }
+}
+function renderLT(){
+  if(LT.phase==='learn'){
+    if(LT.i>=LT.idxs.length) return buildLetterQuiz();
+    const idx=LT.idxs[LT.i], l=ALPHABET[idx], ex=letterExample(idx);
+    app.innerHTML=`
+      <div class="qmeta"><span>✍️ Lettre ${LT.i+1}/${LT.idxs.length}</span><span>10 min/jour, pas plus</span></div>
+      <div class="card">
+        <div class="glyphbig ar">${l[1]}</div>
+        <div class="center"><b style="font-size:19px">${l[0]}</b> · <span class="pill">son : ${l[5]}</span></div>
+        ${MNEMO[l[0]]?`<div class="expl mt">💡 ${MNEMO[l[0]]}</div>`:''}
+        <div class="sub mt center">Ses 4 formes selon la position :</div>
+        <div class="forms">
+          <div class="fcell"><div class="g ar">${l[1]}</div><div class="l">isolée</div></div>
+          <div class="fcell"><div class="g ar">${l[2]}</div><div class="l">début</div></div>
+          <div class="fcell"><div class="g ar">${l[3]}</div><div class="l">milieu</div></div>
+          <div class="fcell"><div class="g ar">${l[4]}</div><div class="l">fin</div></div>
+        </div>
+        ${ex?`<div class="wordcard mt"><div class="sub" style="font-size:11px">On la retrouve dans un mot que tu connais :</div>
+          <div class="w ar">${ex.ar}</div><div class="t">${ex.az}</div><div class="f">${ex.fr}</div>
+          <button class="spk" onclick="speak('${ex.ar}')">🔊</button></div>`:''}
+        <div class="sub mt center">✍️ Trace-la — la main grave ce que l'œil oublie :</div>
+        ${traceHtml(l[1])}
+      </div>
+      <button class="btn" onclick="ltNext()">${LT.i===LT.idxs.length-1?'Petit quiz →':'Lettre suivante →'}</button>
+      <button class="btn ghost mt" onclick="quitLetters()">Quitter</button>`;
+    initTrace();
+  } else {
+    if(LT.qk>=LT.quiz.length) return finishLetters();
+    const it=LT.quiz[LT.qk]; LT.answered=false;
+    app.innerHTML=`
+      <div class="qmeta"><span>✍️ Reconnais la lettre</span><span>${LT.qk+1}/${LT.quiz.length}</span></div>
+      <div class="pbar mb"><i style="width:${LT.qk/LT.quiz.length*100}%"></i></div>
+      <div class="glyphbig ar">${it.shown}</div>
+      <div class="center sub mb">Quelle lettre / quel son ?</div>
+      <div id="opts">${it.opts.map((o,k)=>`<button class="opt" onclick="answerLT(${k})"><b>${o[0]}</b> <span class="sub">— son « ${o[5]} »</span></button>`).join('')}</div>
+      <div id="after"></div>
+      <div class="mt"><button class="btn ghost" onclick="quitLetters()">Quitter</button></div>`;
+  }
+}
+function ltNext(){ LT.i++; renderLT(); }
+function buildLetterQuiz(){
+  LT.quiz=LT.idxs.slice().sort(()=>Math.random()-.5).map(idx=>{
+    const l=ALPHABET[idx], forms=[l[1],l[2],l[3],l[4]], shown=forms[Math.floor(Math.random()*4)];
+    const fam=(famOf(l[0])||[]).filter(n=>n!==l[0]).map(n=>ALPHABET.find(a=>a[0]===n));
+    const others=ALPHABET.filter(a=>a[0]!==l[0]&&!fam.includes(a)).sort(()=>Math.random()-.5);
+    const wrong=[...fam,...others].slice(0,3);
+    const opts=[l,...wrong].sort(()=>Math.random()-.5);
+    return {shown,opts,correct:opts.indexOf(l)};
+  }).slice(0,8);
+  LT.phase='quiz'; LT.qk=0; LT.correct=0; renderLT();
+}
+function answerLT(k){
+  if(LT.answered) return; LT.answered=true;
+  const it=LT.quiz[LT.qk], ok=k===it.correct, l=it.opts[it.correct];
+  document.querySelectorAll('#opts .opt').forEach((b,i)=>{ b.setAttribute('disabled',''); if(i===it.correct)b.classList.add('good'); else if(i===k)b.classList.add('bad'); else b.classList.add('dim'); });
+  if(ok) LT.correct++;
+  const last=LT.qk===LT.quiz.length-1;
+  document.getElementById('after').innerHTML=`<div class="expl ${ok?'':'warn'}">${ok?'✅ ':'❌ '}<b>${l[0]}</b> — son « ${l[5]} »${l[6]?'. '+l[6]:''}</div>
+    <button class="btn mt" onclick="${last?'finishLetters()':'nextLT()'}">${last?'Résultat':'Suivant'}</button>`;
+}
+function nextLT(){ LT.qk++; renderLT(); }
+function quitLetters(){ if(FROM_SESSION) backToSeance(); else setView('ecrire'); }
+function finishLetters(){
+  const pct=LT.quiz.length?Math.round(LT.correct/LT.quiz.length*100):100;
+  if(LT.correct>=Math.ceil(LT.quiz.length*0.6)) addXp(15);
+  S.daily.ecrire++; markActDone();
+  app.innerHTML=`<div class="card big"><div class="em">✍️</div>
+    <div class="score" style="color:var(--good)">${pct}%</div><div class="lab">${LT.correct}/${LT.quiz.length}</div>
+    <div class="mt sub">Les lettres rentrent par petites touches. Pour les graver sur la durée, le <b style="color:var(--txt)">Dojo alphabet</b> (onglet Écrire) prend le relais avec la répétition espacée.</div></div>
+    ${sessBack()}
+    <button class="btn ${FROM_SESSION?'sec':''}" onclick="startLetters([${LT.idxs.join(',')}],{quizOnly:true})">Refaire le quiz</button>
+    ${FROM_SESSION?'':`<button class="btn ghost mt" onclick="setView('ecrire')">Retour</button>`}`;
+}
+
+
+/* ================= BILAN de fin de semaine ================= */
+function renderBilan(day){
+  const say=[
+    ['Saluer',        'salam · sba7 lkhir',                 'سلام'],
+    ['Demander',      'kif dayr? / kif dayra? · labas?',    'كيف داير؟'],
+    ['Te présenter',  'ana... · smiti... · ana men fransa', 'سميتي'],
+    ['Vouloir',       'bghit qahwa · bghit nemshi · ma bghitsh','بغيت'],
+    ['Avoir',         '3ndi lwqt · 3ndi flus · ma 3ndish',  'عندي'],
+    ['Te sauver',     'ma fhemtsh · 3awed 3afak · ma kan3refsh','ما فهمتش']
+  ];
+  app.innerHTML=`
+    <div class="qmeta"><span>🏁 Bilan · Semaine 1</span><span>Jour ${day}</span></div>
+    <div class="card" style="border-color:var(--accent)">
+      <h2>Tu tiens déjà deux minutes</h2>
+      <div class="sub mt">Lis chaque ligne <b style="color:var(--txt)">à voix haute</b>, comme si tu parlais à un pote. Si une phrase coince, retourne à son bloc dans 💬 Parler.</div>
+    </div>
+    ${say.map(s=>`<div class="vrow"><span class="vg ar">${s[2]}</span>
+      <span class="vfr">${s[0]}<div class="sub" style="font-weight:600;color:var(--muted)">${s[1]}</div></span>
+      <button class="spk sm" onclick="speak('${s[2]}')">🔊</button></div>`).join('')}
+    <div class="card mt center sub">Objectif de la semaine atteint : <b style="color:var(--txt)">saluer → te présenter → dire ce que tu veux</b>. C'est déjà une conversation.</div>
+    <button class="btn" onclick="finishBilan()">✅ J'ai tout dit à voix haute</button>
+    ${FROM_SESSION?'':`<button class="btn ghost mt" onclick="setView('home')">Retour</button>`}`;
+}
+function finishBilan(){ addXp(20); markActDone(); if(FROM_SESSION) backToSeance(); else setView('home'); }
