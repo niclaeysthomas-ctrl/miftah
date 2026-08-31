@@ -128,6 +128,7 @@ function render() {
   if (view === 'mots') return renderMots();
   if (view === 'verbes') return renderVerbes();
   if (view === 'ecrire') return renderEcrire();
+  if (view === 'fusha') return renderFusha();
 }
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
