@@ -988,8 +988,13 @@ function renderPhrase(){
     app.innerHTML=`
       <div class="qmeta"><span>${P.kind==='moule'?'🧱':'🗣️'} ${P.b.t} · fabrique</span><span>${P.qk+1}/${P.quiz.length}</span></div>
       <div class="pbar mb"><i style="width:${P.qk/P.quiz.length*100}%"></i></div>
-      <div class="center" style="font-size:19px;font-weight:800;margin:8px 0 16px">${it.fr}</div>
-      <div id="opts">${it.opts.map((o,k)=>`<button class="opt" onclick="answerPhrase(${k})"><b style="color:var(--accent)">${o.az}</b> &nbsp;<span class="ar" style="color:var(--muted)">${o.ar}</span></button>`).join('')}</div>
+      <div class="theme" style="text-align:center">${it.dir==='az2fr'?'Ça veut dire quoi ?':'Comment on dit…'}</div>
+      <div class="center" style="font-size:19px;font-weight:800;margin:8px 0 16px">${it.dir==='az2fr'
+        ? `<span style="color:var(--accent)">${it.az}</span><div class="ar" style="font-size:22px;margin-top:2px">${it.ar}</div>`
+        : it.fr}</div>
+      <div id="opts">${it.opts.map((o,k)=>`<button class="opt" onclick="answerPhrase(${k})">${it.dir==='az2fr'
+        ? o.fr
+        : `<b style="color:var(--accent)">${o.az}</b> &nbsp;<span class="ar" style="color:var(--muted)">${o.ar}</span>`}</button>`).join('')}</div>
       <div id="after"></div>
       <div class="mt"><button class="btn ghost" onclick="quitPhrase()">Quitter</button></div>`;
   }
@@ -1005,12 +1010,40 @@ function phraseFlip(){
 }
 function phraseAgain(){ P.targets.push(P.targets[P.i]); phraseNext(); }
 function phraseNext(){ P.i++; renderPhrase(); }
+/* Toutes les phrases de tous les blocs, pour aller chercher des
+   distracteurs AILLEURS que dans le bloc en cours. */
+function phraseCorpus(){
+  const out=[], vu={};
+  (BLOCS||[]).forEach(b=>{
+    const l=[];
+    if(Array.isArray(b.slots)) b.slots.forEach(sl=>{ if(sl.full) l.push({fr:sl.fr,az:sl.full.az,ar:sl.full.ar}); });
+    if(b.neg) l.push({fr:b.neg.fr,az:b.neg.az,ar:b.neg.ar});
+    if(Array.isArray(b.items)) b.items.forEach(x=>l.push({fr:x.fr,az:x.az,ar:x.ar}));
+    l.forEach(x=>{ if(x&&x.az&&!vu[x.az]){ vu[x.az]=1; x.bloc=b.id; out.push(x); } });
+  });
+  return out;
+}
+/* ⚠️ LES DISTRACTEURS NE PEUVENT PAS ÊTRE LE BLOC ENTIER.
+   Mesuré le 2026-09-23 : le bloc « Dire bonjour » a 4 phrases et la
+   question en affichait 4 — les options ÉTAIENT le bloc. Connaître
+   trois phrases donnait la quatrième gratuitement, sans la savoir.
+   Les blocs à 5 n'en montraient qu'une de moins.
+   On garde donc deux voisins du bloc (ils restent les plus plausibles,
+   c'est là qu'est la vraie confusion) et on impose UN intrus venu d'un
+   autre bloc : l'élimination ne suffit plus.
+   ⚠️ Et la question se pose dans LES DEUX SENS — reconnaître « sbah
+   l-khir » et savoir le produire sont deux compétences, pas une. */
 function buildPhraseQuiz(){
-  const pool=P.targets;
-  P.quiz=pool.slice().sort(()=>Math.random()-.5).slice(0,Math.min(6,pool.length)).map(t=>{
-    const wrong=pool.filter(x=>x.az!==t.az).sort(()=>Math.random()-.5).slice(0,3);
+  const pool=P.targets, corpus=phraseCorpus();
+  const dehors=corpus.filter(x=>!pool.some(p=>p.az===x.az));
+  P.quiz=pool.slice().sort(()=>Math.random()-.5).slice(0,Math.min(6,pool.length)).map((t,i)=>{
+    const voisins=pool.filter(x=>x.az!==t.az).sort(()=>Math.random()-.5).slice(0,2);
+    const intrus=dehors.slice().sort(()=>Math.random()-.5).slice(0,3-voisins.length);
+    let wrong=[...voisins,...intrus];
+    /* filet : si le corpus est trop maigre, on complète dans le bloc */
+    if(wrong.length<3) wrong=wrong.concat(pool.filter(x=>x.az!==t.az&&!wrong.some(w=>w.az===x.az)).slice(0,3-wrong.length));
     const opts=[t,...wrong].sort(()=>Math.random()-.5);
-    return {fr:t.fr,ar:t.ar,opts,correct:opts.indexOf(t)};
+    return {fr:t.fr,az:t.az,ar:t.ar,opts,correct:opts.indexOf(t),dir:(i%2===0?'fr2az':'az2fr')};
   });
   P.phase='quiz'; P.qk=0; P.correct=0; renderPhrase();
 }
@@ -1021,7 +1054,7 @@ function answerPhrase(k){
   if(ok) P.correct++;
   speak(it.ar);
   const last=P.qk===P.quiz.length-1;
-  document.getElementById('after').innerHTML=`<div class="expl ${ok?'':'warn'}">${ok?'✅ ':'❌ '}<b>${it.opts[it.correct].az}</b> — ${it.fr}</div>
+  document.getElementById('after').innerHTML=`<div class="expl ${ok?'':'warn'}">${ok?'✅ ':'❌ '}<b>${it.opts[it.correct].az}</b> — ${it.opts[it.correct].fr}<span class="ar" style="color:var(--muted)">&nbsp; ${it.opts[it.correct].ar||''}</span></div>
     <button class="btn mt" onclick="${last?'finishPhrase()':'nextPhrase()'}">${last?'Résultat':'Suivant'}</button>`;
 }
 function nextPhrase(){ P.qk++; renderPhrase(); }
